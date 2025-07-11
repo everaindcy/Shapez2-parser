@@ -501,19 +501,19 @@ std::set<std::pair<int, int>> Shape::isCreatableNoPinToStack() const {
     int width = shape.shape[0].size();
     int hight = shape.shape.size();
 
+    std::vector<int> cryLayer(width, -1);
+    for (auto y = 0; y < width; y++) {
+        int x = hight - 1;
+        while (x >= 0 && shape.shape[x][y].type != 'c') {
+            x--;
+        }
+        cryLayer[y] = x;
+    }
     for (int axis = 0; axis < width/2; axis++) {
         bool ok = true;
-        auto notSeparable = shape.notSeparableItems(axis);
+        const auto notSeparable = shape.notSeparableItems(axis);
         std::set<std::pair<int, int>> notSeparableStack;
         std::vector<int> lowestLayer(width, hight);
-        std::vector<int> cryLayer(width, -1);
-        for (auto y = 0; y < width; y++) {
-            int x = hight - 1;
-            while (x >= 0 && shape.shape[x][y].type != 'c') {
-                x--;
-            }
-            cryLayer[y] = x;
-        }
         for (const auto& [x, y] : notSeparable) {
             if (shape.shape[x][y].type == 'c') {
                 ok = false;
@@ -526,7 +526,7 @@ std::set<std::pair<int, int>> Shape::isCreatableNoPinToStack() const {
         if (!ok) {
             continue;
         }
-        for (auto i = 0; i < hight; i++) {
+        for (auto i = 1; i < hight; i++) {
             for (auto j = 0; j < width; j++) {
                 if (i < lowestLayer[j] || notSeparableStack.count({i, j}) > 0) {
                     continue;
@@ -538,51 +538,40 @@ std::set<std::pair<int, int>> Shape::isCreatableNoPinToStack() const {
                     ok = false;
                     break;
                 }
-                auto newBlock = shape.findeblock(i, j);
                 bool isSupported = false;
                 int y = j;
-                if (i == 0 || shape.shape[i-1][y].type != '-') {
+                if (shape.shape[i-1][y].type != '-') {
                     isSupported = true;
                 }
                 notSeparableStack.insert({i, y});
-                for (y = (j+1)%width; y != j; y = (y+1)%width) {
-                    if (cryLayer[y] >= i || newBlock.count({i, y}) == 0) {
-                        break;
-                    }
-                    if (lowestLayer[y] > i) {
-                        lowestLayer[y] = i;
-                    }
-                    if (i == 0 || shape.shape[i-1][y].type != '-') {
-                        isSupported = true;
-                    }
-                    notSeparableStack.insert({i, y});
-                }
-                if (y != j) {
-                    for (y = (j-1+width)%width; y != j; y = (y-1+width)%width) {
-                        if (cryLayer[y] >= i || newBlock.count({i, y}) == 0) {
+                if (shape.shape[i][y].isEntity()) {
+                    for (y = (j+1)%width; y != j; y = (y+1)%width) {
+                        if (cryLayer[y] >= i || !shape.shape[i][y].isEntity()) {
                             break;
                         }
                         if (lowestLayer[y] > i) {
                             lowestLayer[y] = i;
                         }
-                        if (i == 0 || shape.shape[i-1][y].type != '-') {
+                        if (shape.shape[i-1][y].type != '-') {
                             isSupported = true;
                         }
                         notSeparableStack.insert({i, y});
                     }
+                    if (y != j) {
+                        for (y = (j-1+width)%width; y != j; y = (y-1+width)%width) {
+                            if (cryLayer[y] >= i || !shape.shape[i][y].isEntity()) {
+                                break;
+                            }
+                            if (lowestLayer[y] > i) {
+                                lowestLayer[y] = i;
+                            }
+                            if (shape.shape[i-1][y].type != '-') {
+                                isSupported = true;
+                            }
+                            notSeparableStack.insert({i, y});
+                        }
+                    }
                 }
-                // for (const auto & [x, y] : newBlock) {
-                //     if (cryLayer[y] >= x) {
-                //         continue;
-                //     }
-                //     if (lowestLayer[y] > x) {
-                //         lowestLayer[y] = x;
-                //     }
-                //     if (x == 0 || shape.shape[x-1][y].type != '-') {
-                //         isSupported = true;
-                //     }
-                //     notSeparableStack.insert({x, y});
-                // }
                 if (!isSupported) {
                     ok = false;
                     break;
@@ -698,15 +687,15 @@ std::set<std::pair<int,int>> Shape::findblock(int x, int y) const {
                 q.push({cx-1, cy});
             }
         }
-        if (currentItem.type == 'c' || currentItem.isShape()) {
+        if (currentItem.type == 'c' || currentItem.isEntity()) {
             auto ty = (cy+1) % width;
-            if (!visited[cx][ty] && (shape.shape[cx][ty].type == 'c' || shape.shape[cx][ty].isShape())) {
+            if (!visited[cx][ty] && (shape.shape[cx][ty].type == 'c' || shape.shape[cx][ty].isEntity())) {
                 block.insert({cx, ty});
                 visited[cx][ty] = true;
                 q.push({cx, ty});
             }
             ty = (cy-1+width) % width;
-            if (!visited[cx][ty] && (shape.shape[cx][ty].type == 'c' || shape.shape[cx][ty].isShape())) {
+            if (!visited[cx][ty] && (shape.shape[cx][ty].type == 'c' || shape.shape[cx][ty].isEntity())) {
                 block.insert({cx, ty});
                 visited[cx][ty] = true;
                 q.push({cx, ty});
@@ -739,15 +728,15 @@ std::set<std::pair<int,int>> Shape::findeblock(int x, int y) const {
         if (currentItem.type == '-' || currentItem.type == 'P' || currentItem.type == 'c') {
             continue;
         }
-        if (currentItem.isShape()) {
+        if (currentItem.isEntity()) {
             auto ty = (cy+1) % width;
-            if (!visited[cx][ty] && shape.shape[cx][ty].isShape()) {
+            if (!visited[cx][ty] && shape.shape[cx][ty].isEntity()) {
                 block.insert({cx, ty});
                 visited[cx][ty] = true;
                 q.push({cx, ty});
             }
             ty = (cy-1+width) % width;
-            if (!visited[cx][ty] && shape.shape[cx][ty].isShape()) {
+            if (!visited[cx][ty] && shape.shape[cx][ty].isEntity()) {
                 block.insert({cx, ty});
                 visited[cx][ty] = true;
                 q.push({cx, ty});

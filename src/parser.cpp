@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
                 stackShapes.push_back(shape.stackBase(layer));
             }
 
-            std::cout << "Shape is creatable. Method:" << std::endl;
+            std::cout << "Shape is creatable without pin. Method:" << std::endl;
             std::cout << "\t" << stackShapes.back();
             for (int i = stackLayers.size() - 1; i >= 0; i--) {
                 std::cout << " from: " << std::endl;

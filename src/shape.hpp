@@ -25,7 +25,7 @@ struct Item {
     bool operator!=(const Item& other) const {
         return !(*this == other);
     }
-    bool isShape() const {
+    bool isEntity() const {
         return type != '-' && type != 'c' && type != 'P';
     }
 };
